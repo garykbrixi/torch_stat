@@ -1,4 +1,5 @@
 from sklearn.utils.validation import check_is_fitted, check_array
+torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 def svd_flip(u, v, u_based_decision=True):
     u = u.view(u.size()[0],1)
@@ -6,7 +7,6 @@ def svd_flip(u, v, u_based_decision=True):
     if u_based_decision:
         # columns of u, rows of v
         max_abs_cols = torch.argmax(torch.abs(u), axis=0)
-        print(max_abs_cols)
         signs = torch.sign(u[list(max_abs_cols), range(u[0].size()[0])])
         u *= signs
         v *= signs.unsqueeze(1)
@@ -28,9 +28,8 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
     similar to the Power method for determining the eigenvectors and
     eigenvalues of a X'Y.
     """
-
     for col in Y.T:
-        if torch.any(torch.abs(col) > torch.finfo(torch.double).eps):
+        if torch.any(torch.abs(col) > torch.finfo(torch.float).eps):
 
             y_score = col.detach().view(col.size())
 
@@ -40,7 +39,6 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
     ite = 1
     X_pinv = Y_pinv = None
     eps = torch.finfo(X.dtype).eps
-
     if mode == "B":
         # Uses condition from scipy<1.3 in pinv2 which was changed in
         # https://github.com/scipy/scipy/pull/10067. In scipy 1.3, the
@@ -62,7 +60,6 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
             x_weights = torch.mm(X_pinv, y_score)
         else:  # mode
             # Mode A regress each X column on y_score
-
             x_weights = torch.mv(X.T, y_score) / torch.dot(y_score.T, y_score)
         # If y_score only has zeros x_weights will only have zeros. In
         # this case add an epsilon to converge to a more acceptable
@@ -191,11 +188,8 @@ class PLS:
         Y_eps = torch.finfo(Yk.dtype).eps
 
         for k in range(self.n_components):
-            print('Xk')
-            print(Xk)
-            print('Yk')
-            print(Yk)
-            if torch.all(torch.mm(Yk.T, Yk) < torch.finfo(torch.double).eps):
+
+            if torch.all(torch.mm(Yk.T, Yk) < torch.finfo(torch.float).eps):
                 # Yk constant
                 warnings.warn('Y residual constant at iteration %s' % k)
                 break
@@ -212,8 +206,6 @@ class PLS:
                         tol=self.tol, norm_y_weights=self.norm_y_weights)
                 self.n_iter_.append(n_iter_)
 
-                print("self.n_iter_")
-                print(self.n_iter_)
             elif self.algorithm == "svd":
                 x_weights, y_weights = _svd_cross_product(X=Xk, Y=Yk)
             # Forces sign stability of x_weights and y_weights
@@ -260,6 +252,7 @@ class PLS:
                               / torch.dot(x_scores.T, x_scores))
                 Yk -= x_scores[:, None] * y_loadings.T
             # 3) Store weights, scores and loadings # Notation:
+
             self.x_scores_[:, k] = x_scores.view(-1)  # T
             self.y_scores_[:, k] = y_scores.view(-1)  # U
             self.x_weights_[:, k] = x_weights.view(-1)  # W
@@ -291,8 +284,8 @@ class PLS:
             # => B = W*Q' (p x q)
 
             self.coef_ = torch.mm(self.x_rotations_, self.y_loadings_.T)
-            self.coef_ = self.coef_.to("cuda")
-            self.y_std_ = self.y_std_.to("cuda")
+            self.coef_ = self.coef_
+            self.y_std_ = self.y_std_
             # self.coef_ = torch.mv(self.coef_, self.y_std_)
             self.coef_ = self.coef_[:, None] * self.y_std_
             self.coef_ = self.coef_[:,0,:]
