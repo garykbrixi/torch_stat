@@ -1,4 +1,4 @@
-# fast_stat
+# torch_stat
 GPU accelerated regressions
 
 Pytorch implementation of: PLSR, PCA, Pearson R, CorrCoef
